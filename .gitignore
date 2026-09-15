@@ -1,0 +1,28 @@
+# Terraform
+.terraform/
+*.tfstate
+*.tfstate.*
+terraform.tfvars
+*.auto.tfvars
+crash.log
+crash.*.log
+
+# Keep Terraform lock file
+!.terraform.lock.hcl
+
+# Environment / credentials
+.env
+*.pem
+*.key
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+
+# macOS
+.DS_Store
+
+# IDE
+.vscode/
+.idea/

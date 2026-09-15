@@ -1,0 +1,129 @@
+pipeline {
+    agent any
+
+    environment {
+        APP_NAME      = "cicd-modernization-demo"
+        IMAGE_TAG     = "${BUILD_NUMBER}"
+        AWS_REGION    = "us-west-2"
+        ECR_REPOSITORY = "cicd-modernization-demo"
+    }
+
+    stages {
+
+        stage('Checkout') {
+            steps {
+                checkout scm
+            }
+        }
+
+        stage('Install Dependencies') {
+            steps {
+                dir('app') {
+                    sh '''
+                        python3 -m venv .venv
+                        . .venv/bin/activate
+                        pip install --upgrade pip
+                        pip install -r requirements.txt
+                    '''
+                }
+            }
+        }
+
+        stage('Unit Tests') {
+            steps {
+                dir('app') {
+                    sh '''
+                        . .venv/bin/activate
+                        pytest -v
+                    '''
+                }
+            }
+        }
+
+        stage('Docker Build') {
+            steps {
+                sh '''
+                    docker build \
+                      -t ${APP_NAME}:${IMAGE_TAG} \
+                      ./app
+                '''
+            }
+        }
+
+        stage('Authenticate to AWS') {
+            steps {
+                sh '''
+                    aws sts get-caller-identity
+                '''
+            }
+        }
+
+        stage('Login to Amazon ECR') {
+            steps {
+                sh '''
+                    AWS_ACCOUNT_ID=$(aws sts get-caller-identity \
+                      --query Account \
+                      --output text)
+
+                    aws ecr get-login-password \
+                      --region ${AWS_REGION} | \
+                    docker login \
+                      --username AWS \
+                      --password-stdin \
+                      ${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com
+                '''
+            }
+        }
+
+        stage('Push Docker Image') {
+            steps {
+                sh '''
+                    AWS_ACCOUNT_ID=$(aws sts get-caller-identity \
+                      --query Account \
+                      --output text)
+
+                    ECR_URI=${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/${ECR_REPOSITORY}
+
+                    docker tag \
+                      ${APP_NAME}:${IMAGE_TAG} \
+                      ${ECR_URI}:${IMAGE_TAG}
+
+                    docker push \
+                      ${ECR_URI}:${IMAGE_TAG}
+                '''
+            }
+        }
+
+        stage('Deploy to Kubernetes') {
+            steps {
+                sh '''
+                    kubectl apply -f kubernetes/base/
+                '''
+            }
+        }
+
+        stage('Verify Deployment') {
+            steps {
+                sh '''
+                    kubectl rollout status \
+                      deployment/${APP_NAME} \
+                      --timeout=180s
+                '''
+            }
+        }
+    }
+
+    post {
+        success {
+            echo 'Pipeline completed successfully.'
+        }
+
+        failure {
+            echo 'Pipeline failed.'
+        }
+
+        always {
+            cleanWs()
+        }
+    }
+}
