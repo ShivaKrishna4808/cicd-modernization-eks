@@ -16,3 +16,7 @@ jobs:
   test:
     name: Test Application
     uses: ./.github/workflows/reusable-test.yml
+
+  docker:
+    name: Validate Container Build
+    uses: ./.github/workflows/reusable-docker.yml
