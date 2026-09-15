@@ -1,0 +1,14 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - ../../base
+
+images:
+  - name: cicd-modernization-demo
+    newName: 661952267302.dkr.ecr.us-west-2.amazonaws.com/cicd-modernization-demo
+    newTag: sha-6b52e0968b0d644a4c8447d264ad6400370831bc
+
+labels:
+  - pairs:
+      environment: production
